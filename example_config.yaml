@@ -1,0 +1,36 @@
+
+logger:
+    console:
+        level: DEBUG
+
+cognite:
+    # Read these from environment variables
+    host: ${COGNITE_BASE_URL}
+    project: ${COGNITE_PROJECT}
+
+    idp-authentication:
+        token-url: ${COGNITE_TOKEN_URL}
+
+        client-id: ${COGNITE_CLIENT_ID}
+        secret: ${COGNITE_CLIENT_SECRET}
+        scopes:
+            - ${COGNITE_BASE_URL}/.default
+
+    extraction-pipeline:
+        external-id: ts-sub
+
+source:
+    base_url: ${SRC_COGNITE_BASE_URL}/api/v1/projects/${SRC_COGNITE_PROJECT}/
+    auth:
+        oauth:
+            client_id: ${SRC_COGNITE_CLIENT_ID}
+            secret: ${SRC_COGNITE_CLIENT_SECRET}
+            token_url: ${SRC_COGNITE_TOKEN_URL}
+            scopes:
+                - $(SRC_COGNITE_BASE_URL)/.default
+            audience: ${SRC_COGNITE_AUDIENCE}
+
+subscriptions:
+    externalId: ts-subscription
+    partitions:
+        - 0

@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "cdf-ts-extractor",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["/Users/murad.sater@cognitedata.com/git/cdf-ts-replicator/example_config.yaml"],
+            "justMyCode": false,
+            "env":{
+                "COGNITE_PROJECT":"murad-lab",
+                "COGNITE_BASE_URL":"https://api.cognitedata.com",
+                "COGNITE_CLIENT_ID":"05d69450-13a4-41ab-a316-20f7e0f79829",
+                "COGNITE_CLIENT_SECRET":"YuMKRSijSC32mT8vu/ebN4dYiDWs7yTCDV91oPFPHmI=",
+                "COGNITE_TOKEN_URL":"https://login.microsoftonline.com/482d1823-3d62-4c8b-8533-559746c74379/oauth2/v2.0/token",
+                "SRC_COGNITE_PROJECT":"murad-lab",
+                "SRC_COGNITE_BASE_URL":"https://api.cognitedata.com",
+                "SRC_COGNITE_CLIENT_ID":"05d69450-13a4-41ab-a316-20f7e0f79829",
+                "SRC_COGNITE_CLIENT_SECRET":"YuMKRSijSC32mT8vu/ebN4dYiDWs7yTCDV91oPFPHmI=",
+                "SRC_COGNITE_TOKEN_URL":"https://login.microsoftonline.com/482d1823-3d62-4c8b-8533-559746c74379/oauth2/v2.0/token"
+            }
+        }
+    ]
+}
