@@ -1,0 +1,43 @@
+
+logger:
+    console:
+        level: INFO
+
+cognite:
+    # Read these from environment variables
+    host: ${COGNITE_BASE_URL}
+    project: ${COGNITE_PROJECT}
+
+    idp-authentication:
+        token-url: ${COGNITE_TOKEN_URL}
+        client-id: ${COGNITE_CLIENT_ID}
+        secret: ${COGNITE_CLIENT_SECRET}
+        scopes:
+            - ${COGNITE_BASE_URL}/.default
+    extraction-pipeline:
+        external-id: ts-sub
+
+extractor:
+    state-store:
+        local:
+            path: state.json
+
+
+destinations:
+  - connectionStr: "eventhub-jalla"
+  - project: murad-lab
+    host: ${DST_COGNITE_BASE_URL}
+    idp-authentication:
+        client_id: ${DST_COGNITE_CLIENT_ID}
+        secret: ${DST_COGNITE_CLIENT_SECRET}
+        token_url: ${DST_COGNITE_TOKEN_URL}
+        scopes:
+            - ${DST_COGNITE_BASE_URL}/.default
+        audience: ${DST_COGNITE_AUDIENCE}
+    external_id_prefix: subtest_
+
+subscriptions:
+  - externalId: ts-subscription
+    partitions:
+        - 0
+
