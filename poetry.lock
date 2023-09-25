@@ -28,6 +28,42 @@ files = [
 python-dateutil = ">=2.7.0"
 
 [[package]]
+name = "azure-core"
+version = "1.29.4"
+description = "Microsoft Azure Core Library for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "azure-core-1.29.4.tar.gz", hash = "sha256:500b3aa9bf2e90c5ccc88bb105d056114ca0ce7d0ce73afb8bc4d714b2fc7568"},
+    {file = "azure_core-1.29.4-py3-none-any.whl", hash = "sha256:b03261bcba22c0b9290faf9999cedd23e849ed2577feee90515694cea6bc74bf"},
+]
+
+[package.dependencies]
+requests = ">=2.18.4"
+six = ">=1.11.0"
+typing-extensions = ">=4.6.0"
+
+[package.extras]
+aio = ["aiohttp (>=3.0)"]
+
+[[package]]
+name = "azure-eventhub"
+version = "5.11.4"
+description = "Microsoft Azure Event Hubs Client Library for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "azure-eventhub-5.11.4.zip", hash = "sha256:68b89a3515040f1176f9b496c4c76d381c107779aed7757cbbb9a3dabe30a823"},
+    {file = "azure_eventhub-5.11.4-py3-none-any.whl", hash = "sha256:d9c7710d3a75abd849a3d1cf694ac76795356466cd1c6db300e60e1990c26c8f"},
+]
+
+[package.dependencies]
+azure-core = ">=1.14.0,<2.0.0"
+typing-extensions = ">=4.0.1"
+
+[[package]]
 name = "certifi"
 version = "2023.7.22"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -889,4 +925,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<3.11"
-content-hash = "aa80aa654d46a135d3bf9c33f220f20a44f76d766b1165dccc9ae0af1028ea07"
+content-hash = "63532c4c7907ddb6e5d2f2adf966618e809b730b3ec18d928e1e0fa207e1eb43"

@@ -18,7 +18,8 @@ class SubscriptionsConfig:
 
 @dataclass
 class EventHubConfig:
-    connectionStr: str
+    connection_string: str
+    eventhub_name: str
 
 
 @dataclass

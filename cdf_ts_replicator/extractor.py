@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 import time
@@ -5,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from typing import Dict, Union
 
+from azure.eventhub import EventData, EventHubProducerClient
+from azure.eventhub.exceptions import EventHubError
 from cognite.client import CogniteClient
 from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import DatapointSubscriptionBatch
@@ -74,8 +77,54 @@ def submit_to_destination(
         print("Unknown destination type")
 
 
+def _get_producer(connection_string: str, eventhub_name: str) -> EventHubProducerClient:
+    if connection_string == None or eventhub_name == None:
+        return None
+
+    return EventHubProducerClient.from_connection_string(conn_str=connection_string, eventhub_name=eventhub_name)
+
+
 def send_to_eventhub(update_batch: DatapointSubscriptionBatch, config: EventHubConfig) -> None:
-    pass
+    producer = _get_producer(config.connection_string, config.eventhub_name)
+
+    if producer:
+        with producer:
+            try:
+                event_data_batch = producer.create_batch(max_size_in_bytes=1048576)
+                for update in update_batch.updates:
+                    for i in range(0, len(update.upserts.timestamp)):
+                        try:
+                            event_data_batch.add(
+                                EventData(
+                                    json.dumps(
+                                        {
+                                            "externalId": update.upserts.external_id,
+                                            "timestamp": update.upserts.timestamp[i],
+                                            "value": update.upserts.value[i],
+                                        }
+                                    )
+                                )
+                            )
+                        except ValueError:
+                            # EventDataBatch object reaches max_size.
+                            logging.info(f"Send batch {len(event_data_batch)}")
+                            producer.send_batch(event_data_batch)
+                            event_data_batch = producer.create_batch(max_size_in_bytes=1048576)
+                            event_data_batch.add(
+                                EventData(
+                                    json.dumps(
+                                        {
+                                            "externalId": update.upserts.external_id,
+                                            "timestamp": update.upserts.timestamp[i],
+                                            "value": update.upserts.value[i],
+                                        }
+                                    )
+                                )
+                            )
+                    logging.info(f"Send batch {len(event_data_batch)}")
+                producer.send_batch(event_data_batch)
+            except EventHubError as eh_err:
+                logging.warning("Sending error: ", eh_err)
 
 
 def send_to_cdf(update_batch: DatapointSubscriptionBatch, config: CogniteConfig) -> None:
