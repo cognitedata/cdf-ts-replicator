@@ -77,7 +77,7 @@ def submit_to_destination(
         print("Unknown destination type")
 
 
-def _get_producer(connection_string: str, eventhub_name: str) -> EventHubProducerClient:
+def _get_producer(connection_string: str, eventhub_name: str) -> EventHubProducerClient | None:
     if connection_string == None or eventhub_name == None:
         return None
 
@@ -90,38 +90,41 @@ def send_to_eventhub(update_batch: DatapointSubscriptionBatch, config: EventHubC
     if producer:
         with producer:
             try:
-                event_data_batch = producer.create_batch(max_size_in_bytes=1048576)
+                event_data_batch = producer.create_batch(max_size_in_bytes=config.event_hub_batch_size)
+                jsonLines = ""
                 for update in update_batch.updates:
                     for i in range(0, len(update.upserts.timestamp)):
                         try:
-                            event_data_batch.add(
-                                EventData(
-                                    json.dumps(
-                                        {
-                                            "externalId": update.upserts.external_id,
-                                            "timestamp": update.upserts.timestamp[i],
-                                            "value": update.upserts.value[i],
-                                        }
-                                    )
-                                )
+                            jsonData = json.dumps(
+                                {
+                                    "externalId": update.upserts.external_id,
+                                    "timestamp": update.upserts.timestamp[i],
+                                    "value": update.upserts.value[i],
+                                },
                             )
+
+                            if not config.use_jsonl:
+                                event_data_batch.add(EventData(jsonData))
+                            else:
+                                jsonLines = jsonLines + f"\n{jsonData}"
+                                if len(jsonLines.split("\n")) == config.jsonl_batch_size:
+                                    event_data_batch.add(EventData(jsonLines))
+                                    jsonLines = ""
+
                         except ValueError:
                             # EventDataBatch object reaches max_size.
-                            logging.info(f"Send batch {len(event_data_batch)}")
+                            logging.info(f"Length {len(jsonLines)}")
+                            logging.info(f"X Send batch {len(event_data_batch)}")
                             producer.send_batch(event_data_batch)
-                            event_data_batch = producer.create_batch(max_size_in_bytes=1048576)
-                            event_data_batch.add(
-                                EventData(
-                                    json.dumps(
-                                        {
-                                            "externalId": update.upserts.external_id,
-                                            "timestamp": update.upserts.timestamp[i],
-                                            "value": update.upserts.value[i],
-                                        }
-                                    )
-                                )
-                            )
-                    logging.info(f"Send batch {len(event_data_batch)}")
+                            event_data_batch = producer.create_batch(max_size_in_bytes=config.event_hub_batch_size)
+                            if not config.use_jsonl:
+                                event_data_batch.add(EventData(jsonData))
+                            elif config.use_jsonl:
+                                event_data_batch.add(EventData(jsonLines))
+                                jsonLines = ""
+
+                event_data_batch.add(EventData(jsonLines))
+                logging.info(f"Y Send batch {len(event_data_batch)}")
                 producer.send_batch(event_data_batch)
             except EventHubError as eh_err:
                 logging.warning("Sending error: ", eh_err)
