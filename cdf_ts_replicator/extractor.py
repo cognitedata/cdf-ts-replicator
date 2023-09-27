@@ -4,7 +4,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
-from typing import Dict, Union
+from typing import Any, Dict, List, Union
 
 from azure.eventhub import EventData, EventHubProducerClient
 from azure.eventhub.exceptions import EventHubError
@@ -12,27 +12,46 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import DatapointSubscriptionBatch
 from cognite.client.exceptions import CogniteAPIError
+from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.configtools import CogniteConfig
+from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.statestore import AbstractStateStore
+from cognite.extractorutils.util import retry
 
 from cdf_ts_replicator import __version__
 from cdf_ts_replicator.config import Config, EventHubConfig
+from cdf_ts_replicator.metrics import Metrics
 
 
-class Extractor:
-    def run_extractor(
-        self, client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event
-    ) -> None:
+class TimeSeriesReplicator(Extractor):
+    def __init__(self, metrics: Metrics, stop_event: Event) -> None:
+        super().__init__(
+            name="cdf_ts_replicator",
+            description="CDF Timeseries Replicator",
+            config_class=Config,
+            metrics=metrics,
+            use_default_state_store=False,
+            version=__version__,
+            cancellation_token=stop_event,
+        )
+        self.metrics: Metrics
+        self.stop_event = stop_event
+        self.endpoint_source_map: Dict[str, Any] = {}
+        self.errors: List[str] = []
+
+    def run(self) -> None:
         # init/connect to destination
-        states.initialize()
+        self.state_store.initialize()
 
-        for subscription in config.subscriptions:
-            logging.info(f"{client.time_series.subscriptions.retrieve(external_id=subscription.externalId)}")
+        for subscription in self.config.subscriptions:
+            logging.info(
+                f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.externalId)}"
+            )
 
-        while not stop_event.is_set():
+        while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
-            self.process_subscriptions(client, states, config, stop_event)
+            self.process_subscriptions()
 
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
@@ -40,31 +59,25 @@ class Extractor:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    def process_subscriptions(
-        self, client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event
-    ) -> None:
-        for subscription in config.subscriptions:
+    def process_subscriptions(self) -> None:
+        for subscription in self.config.subscriptions:
             for partition in subscription.partitions:
                 with ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        self.process_partition, client, subscription.externalId, partition, states, config
-                    )
+                    future = executor.submit(self.process_partition, subscription.externalId, partition)
                     logging.info(future.result())
 
-    def process_partition(
-        self, client: CogniteClient, external_id: str, partition: int, states: AbstractStateStore, config: Config
-    ) -> str:
+    def process_partition(self, external_id: str, partition: int) -> str:
         state_id = f"{external_id}_{partition}"
-        cursor = states.get_state(external_id=state_id)[1]
+        cursor = self.state_store.get_state(external_id=state_id)[1]
         logging.debug(f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}")
 
-        for update_batch in client.time_series.subscriptions.iterate_data(
-            external_id=external_id, partition=partition, cursor=cursor, limit=config.extractor.batch_size
+        for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
+            external_id=external_id, partition=partition, cursor=cursor, limit=self.config.extractor.batch_size
         ):
-            for destination in config.destinations:
+            for destination in self.config.destinations:
                 self.submit_to_destination(destination, update_batch)
 
-            states.set_state(external_id=state_id, high=update_batch.cursor)
+            self.state_store.set_state(external_id=state_id, high=update_batch.cursor)
 
             if not update_batch.has_next:
                 return f"{state_id} no more data at {update_batch.cursor}"
@@ -80,7 +93,7 @@ class Extractor:
         else:
             print("Unknown destination type")
 
-    def _get_producer(self, connection_string: str, eventhub_name: str) -> EventHubProducerClient | None:
+    def _get_producer(self, connection_string: str, eventhub_name: str) -> Union[EventHubProducerClient, None]:
         if connection_string == None or eventhub_name == None:
             return None
 

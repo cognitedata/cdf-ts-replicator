@@ -1,18 +1,18 @@
+from threading import Event
+
 from cognite.extractorutils import Extractor
+from cognite.extractorutils.metrics import safe_get
 
 from cdf_ts_replicator import __version__
 from cdf_ts_replicator.config import Config
-from cdf_ts_replicator.extractor import run_extractor
+from cdf_ts_replicator.extractor import TimeSeriesReplicator
+from cdf_ts_replicator.metrics import Metrics
 
 
 def main() -> None:
-    with Extractor(
-        name="cdf_ts_replicator",
-        description="Stream datapoints from CDF to other destinations",
-        config_class=Config,
-        run_handle=run_extractor,
-        version=__version__,
-    ) as extractor:
+    stop_event = Event()
+
+    with TimeSeriesReplicator(metrics=safe_get(Metrics), stop_event=stop_event) as extractor:
         extractor.run()
 
 
